@@ -2,27 +2,30 @@
 
 /**
  * Outlook/Microsoft 365 email CLI via Microsoft Graph API
+ * Supports multiple accounts.
  *
  * Usage:
- *   node outlook.js auth                                    # Interactive login
- *   node outlook.js search "subject:invoice"                # Search emails
- *   node outlook.js read <messageId>                        # Read email
- *   node outlook.js send --to "a@x.com" --subject "Hi" --body "Hello"
- *   node outlook.js reply <messageId> --body "Thanks"
- *   node outlook.js folders                                 # List folders
- *   node outlook.js list [--folder inbox] [--top 10]        # List recent emails
+ *   node outlook.js accounts list                           # List configured accounts
+ *   node outlook.js accounts add <email>                    # Add account (interactive)
+ *   node outlook.js accounts remove <email>                 # Remove account
+ *   node outlook.js accounts credentials <file.json>        # Set Azure AD app credentials
+ *   node outlook.js <email> list [--folder inbox] [--top 10]
+ *   node outlook.js <email> search "query" [--top 10]
+ *   node outlook.js <email> read <messageId>
+ *   node outlook.js <email> send --to "a@x.com" --subject "Hi" --body "Hello"
+ *   node outlook.js <email> reply <messageId> --body "Thanks"
+ *   node outlook.js <email> folders
  */
 
-import { ConfidentialClientApplication, PublicClientApplication } from "@azure/msal-node";
+import { PublicClientApplication } from "@azure/msal-node";
 import { Client } from "@microsoft/microsoft-graph-client";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-import { createServer } from "http";
 
 const CONFIG_DIR = join(homedir(), ".outlook-cli");
-const TOKEN_FILE = join(CONFIG_DIR, "token.json");
-const CONFIG_FILE = join(CONFIG_DIR, "config.json");
+const CREDENTIALS_FILE = join(CONFIG_DIR, "credentials.json");
+const ACCOUNTS_FILE = join(CONFIG_DIR, "accounts.json");
 
 const SCOPES = [
   "https://graph.microsoft.com/Mail.Read",
@@ -31,38 +34,57 @@ const SCOPES = [
   "https://graph.microsoft.com/User.Read",
 ];
 
-// ── Helpers ──────────────────────────────────────────────
+// ── Storage ─────────────────────────────────────────────
 
 function ensureConfigDir() {
   if (!existsSync(CONFIG_DIR)) mkdirSync(CONFIG_DIR, { recursive: true });
 }
 
-function loadConfig() {
-  if (!existsSync(CONFIG_FILE)) return null;
-  return JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
+function loadCredentials() {
+  if (!existsSync(CREDENTIALS_FILE)) return null;
+  return JSON.parse(readFileSync(CREDENTIALS_FILE, "utf-8"));
 }
 
-function saveConfig(config) {
+function saveCredentials(creds) {
   ensureConfigDir();
-  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+  writeFileSync(CREDENTIALS_FILE, JSON.stringify(creds, null, 2));
 }
 
-function loadToken() {
-  if (!existsSync(TOKEN_FILE)) return null;
-  const data = JSON.parse(readFileSync(TOKEN_FILE, "utf-8"));
-  if (data.expiresAt && Date.now() > data.expiresAt) return null;
-  return data;
+function loadAccounts() {
+  if (!existsSync(ACCOUNTS_FILE)) return {};
+  return JSON.parse(readFileSync(ACCOUNTS_FILE, "utf-8"));
 }
 
-function saveToken(token) {
+function saveAccounts(accounts) {
   ensureConfigDir();
-  const data = {
+  writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2));
+}
+
+function getAccountToken(email) {
+  const accounts = loadAccounts();
+  const account = accounts[email];
+  if (!account) return null;
+  if (account.expiresAt && Date.now() > account.expiresAt) return null;
+  return account.accessToken;
+}
+
+function setAccountToken(email, token) {
+  const accounts = loadAccounts();
+  accounts[email] = {
     accessToken: token.accessToken,
     expiresAt: Date.now() + (token.expiresIn || 3600) * 1000,
+    addedAt: accounts[email]?.addedAt || new Date().toISOString(),
   };
-  writeFileSync(TOKEN_FILE, JSON.stringify(data, null, 2));
-  return data;
+  saveAccounts(accounts);
 }
+
+function removeAccount(email) {
+  const accounts = loadAccounts();
+  delete accounts[email];
+  saveAccounts(accounts);
+}
+
+// ── Helpers ─────────────────────────────────────────────
 
 function getClient(accessToken) {
   return Client.init({
@@ -93,15 +115,27 @@ function parseArgs(args) {
 
 // ── Auth ────────────────────────────────────────────────
 
-async function authenticate(config) {
+async function authenticate(email) {
+  const creds = loadCredentials();
+  if (!creds) {
+    console.error("Error: No credentials configured.\nRun: node outlook.js accounts credentials <file.json>");
+    console.error("\nOr set up manually:");
+    console.error("1. Go to https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps");
+    console.error('2. New registration → Name: "outlook-cli" → Personal + org accounts');
+    console.error("3. Platform: Mobile/Desktop → Redirect URI: http://localhost");
+    console.error("4. API permissions → Add: Mail.Read, Mail.Send, Mail.ReadWrite, User.Read");
+    console.error("5. Create a JSON file with: { \"clientId\": \"your-app-id\", \"tenantId\": \"common\" }");
+    process.exit(1);
+  }
+
   const pca = new PublicClientApplication({
     auth: {
-      clientId: config.clientId,
-      authority: config.authority || `https://login.microsoftonline.com/${config.tenantId || "common"}`,
+      clientId: creds.clientId,
+      authority: `https://login.microsoftonline.com/${creds.tenantId || "common"}`,
     },
   });
 
-  // Device code flow — works in terminals without browser redirect
+  console.log(`Authenticating ${email}...`);
   const result = await pca.acquireTokenByDeviceCode({
     scopes: SCOPES,
     deviceCodeCallback: (response) => {
@@ -110,64 +144,75 @@ async function authenticate(config) {
     },
   });
 
-  return saveToken(result);
+  setAccountToken(email, result);
+  return result.accessToken;
 }
 
-async function getAccessToken() {
-  const token = loadToken();
-  if (token) return token.accessToken;
+async function getAccessToken(email) {
+  const token = getAccountToken(email);
+  if (token) return token;
+  return await authenticate(email);
+}
 
-  const config = loadConfig();
-  if (!config) {
-    console.error("Error: Not configured.\nRun: node outlook.js setup");
+// ── Account Commands ────────────────────────────────────
+
+function accountsList() {
+  const accounts = loadAccounts();
+  const emails = Object.keys(accounts);
+  if (emails.length === 0) {
+    console.log("No accounts configured.");
+    console.log("Run: node outlook.js accounts add <email>");
+    return;
+  }
+  for (const email of emails) {
+    const acc = accounts[email];
+    const expired = acc.expiresAt && Date.now() > acc.expiresAt;
+    const status = expired ? "⚠️  token expired" : "✅ active";
+    console.log(`${status}  ${email}`);
+  }
+}
+
+async function accountsAdd(email) {
+  if (!email) {
+    console.error("Usage: node outlook.js accounts add <email>");
     process.exit(1);
   }
-
-  const newToken = await authenticate(config);
-  return newToken.accessToken;
+  await authenticate(email);
+  console.log(`✅ Account ${email} added.`);
 }
 
-// ── Commands ────────────────────────────────────────────
-
-async function setup() {
-  console.log("Outlook CLI Setup\n");
-  console.log("You need an Azure AD app registration:");
-  console.log("1. Go to https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps");
-  console.log("2. New registration → Name: 'outlook-cli' → Personal accounts + org");
-  console.log("3. Platform: Mobile/Desktop → Redirect URI: http://localhost");
-  console.log("4. API permissions → Add: Mail.Read, Mail.Send, Mail.ReadWrite, User.Read");
-  console.log("5. Copy the Application (client) ID\n");
-
-  // Read from stdin
-  const readline = await import("readline");
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const ask = (q) => new Promise((r) => rl.question(q, r));
-
-  const clientId = await ask("Application (client) ID: ");
-  const tenantId = await ask("Tenant ID (or 'common' for any account): ");
-
-  saveConfig({
-    clientId: clientId.trim(),
-    tenantId: tenantId.trim() || "common",
-  });
-
-  rl.close();
-  console.log(`\nConfig saved to ${CONFIG_FILE}`);
-  console.log("Run: node outlook.js auth");
-}
-
-async function auth() {
-  const config = loadConfig();
-  if (!config) {
-    console.error("Not configured. Run: node outlook.js setup");
+function accountsRemove(email) {
+  if (!email) {
+    console.error("Usage: node outlook.js accounts remove <email>");
     process.exit(1);
   }
-  await authenticate(config);
-  console.log("✅ Authenticated successfully.");
+  removeAccount(email);
+  console.log(`Removed ${email}.`);
 }
 
-async function listEmails(opts) {
-  const client = getClient(await getAccessToken());
+function accountsCredentials(file) {
+  if (!file) {
+    console.error("Usage: node outlook.js accounts credentials <file.json>");
+    console.error("\nJSON format: { \"clientId\": \"your-app-id\", \"tenantId\": \"common\" }");
+    process.exit(1);
+  }
+  if (!existsSync(file)) {
+    console.error(`File not found: ${file}`);
+    process.exit(1);
+  }
+  const creds = JSON.parse(readFileSync(file, "utf-8"));
+  if (!creds.clientId) {
+    console.error("Error: JSON must contain 'clientId' field.");
+    process.exit(1);
+  }
+  saveCredentials({ clientId: creds.clientId, tenantId: creds.tenantId || "common" });
+  console.log(`✅ Credentials saved to ${CREDENTIALS_FILE}`);
+}
+
+// ── Email Commands ──────────────────────────────────────
+
+async function listEmails(email, opts) {
+  const client = getClient(await getAccessToken(email));
   const folder = opts.folder || "inbox";
   const top = parseInt(opts.top) || 10;
 
@@ -195,8 +240,8 @@ async function listEmails(opts) {
   }
 }
 
-async function searchEmails(query, opts) {
-  const client = getClient(await getAccessToken());
+async function searchEmails(email, query, opts) {
+  const client = getClient(await getAccessToken(email));
   const top = parseInt(opts.top) || 10;
 
   const result = await client
@@ -222,8 +267,8 @@ async function searchEmails(query, opts) {
   }
 }
 
-async function readEmail(messageId) {
-  const client = getClient(await getAccessToken());
+async function readEmail(email, messageId) {
+  const client = getClient(await getAccessToken(email));
 
   const msg = await client
     .api(`/me/messages/${messageId}`)
@@ -241,7 +286,6 @@ async function readEmail(messageId) {
   console.log(`Date: ${date}`);
   console.log(`Subject: ${msg.subject}`);
   console.log(`---`);
-  // Strip HTML tags for plain text output
   const body = msg.body?.content?.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim() || "";
   console.log(body);
 
@@ -254,13 +298,13 @@ async function readEmail(messageId) {
   }
 }
 
-async function sendEmail(opts) {
+async function sendEmail(email, opts) {
   if (!opts.to || !opts.subject || !opts.body) {
     console.error("Required: --to, --subject, --body");
     process.exit(1);
   }
 
-  const client = getClient(await getAccessToken());
+  const client = getClient(await getAccessToken(email));
 
   const message = {
     subject: opts.subject,
@@ -276,21 +320,21 @@ async function sendEmail(opts) {
   console.log(`✅ Sent to ${opts.to}`);
 }
 
-async function replyEmail(messageId, opts) {
+async function replyEmail(email, messageId, opts) {
   if (!opts.body) {
     console.error("Required: --body");
     process.exit(1);
   }
 
-  const client = getClient(await getAccessToken());
+  const client = getClient(await getAccessToken(email));
   await client.api(`/me/messages/${messageId}/reply`).post({
     comment: opts.body,
   });
   console.log(`✅ Reply sent`);
 }
 
-async function listFolders() {
-  const client = getClient(await getAccessToken());
+async function listFolders(email) {
+  const client = getClient(await getAccessToken(email));
   const result = await client
     .api("/me/mailFolders")
     .top(50)
@@ -307,70 +351,85 @@ async function listFolders() {
 // ── Main ────────────────────────────────────────────────
 
 const args = parseArgs(process.argv.slice(2));
-const command = args._[0];
+const cmd1 = args._[0];
+const cmd2 = args._[1];
 
-if (!command || command === "--help" || command === "-h") {
+if (!cmd1 || cmd1 === "--help" || cmd1 === "-h") {
   console.log(`Outlook/Microsoft 365 Email CLI
 
-Usage:
-  node outlook.js setup                                    Set up Azure AD credentials
-  node outlook.js auth                                     Authenticate (device code flow)
-  node outlook.js list [--folder inbox] [--top 10]         List recent emails
-  node outlook.js search "query"                           Search emails
-  node outlook.js read <messageId>                         Read full email
-  node outlook.js send --to "a@x.com" --subject "Hi" --body "Hello"
-  node outlook.js reply <messageId> --body "Thanks"        Reply to email
-  node outlook.js folders                                  List mail folders
+Account Management:
+  node outlook.js accounts list                        List configured accounts
+  node outlook.js accounts add <email>                 Add account (device code auth)
+  node outlook.js accounts remove <email>              Remove account
+  node outlook.js accounts credentials <file.json>     Set Azure AD app credentials
 
-Requires Azure AD app registration. Run 'node outlook.js setup' first.`);
+Email Commands (per account):
+  node outlook.js <email> list [--folder inbox] [--top 10]
+  node outlook.js <email> search "query" [--top 10]
+  node outlook.js <email> read <messageId>
+  node outlook.js <email> send --to "a@x.com" --subject "Hi" --body "Hello"
+  node outlook.js <email> reply <messageId> --body "Thanks"
+  node outlook.js <email> folders
+
+Examples:
+  node outlook.js accounts credentials ./creds.json
+  node outlook.js accounts add satish@deltaxy.ai
+  node outlook.js accounts add john@company.com
+  node outlook.js satish@deltaxy.ai list --top 5
+  node outlook.js john@company.com search "from:boss"
+  node outlook.js satish@deltaxy.ai send --to "a@x.com" --subject "Hi" --body "Hello"
+
+Data Storage:
+  ~/.outlook-cli/credentials.json   Azure AD app credentials (shared across accounts)
+  ~/.outlook-cli/accounts.json      Per-account tokens`);
   process.exit(0);
 }
 
 try {
-  switch (command) {
-    case "setup":
-      await setup();
-      break;
-    case "auth":
-      await auth();
-      break;
-    case "list":
-      await listEmails(args);
-      break;
-    case "search":
-      if (!args._[1]) {
-        console.error("Usage: node outlook.js search \"query\"");
+  // Account management commands
+  if (cmd1 === "accounts") {
+    switch (cmd2) {
+      case "list":    accountsList(); break;
+      case "add":     await accountsAdd(args._[2]); break;
+      case "remove":  accountsRemove(args._[2]); break;
+      case "credentials": accountsCredentials(args._[2]); break;
+      default:
+        console.error(`Unknown accounts command: ${cmd2}\nRun: node outlook.js --help`);
         process.exit(1);
-      }
-      await searchEmails(args._[1], args);
-      break;
-    case "read":
-      if (!args._[1]) {
-        console.error("Usage: node outlook.js read <messageId>");
+    }
+  }
+  // Email commands — first arg is email address
+  else if (cmd1.includes("@")) {
+    const email = cmd1;
+    const command = cmd2;
+
+    switch (command) {
+      case "list":    await listEmails(email, args); break;
+      case "search":
+        if (!args._[2]) { console.error('Usage: node outlook.js <email> search "query"'); process.exit(1); }
+        await searchEmails(email, args._[2], args);
+        break;
+      case "read":
+        if (!args._[2]) { console.error("Usage: node outlook.js <email> read <messageId>"); process.exit(1); }
+        await readEmail(email, args._[2]);
+        break;
+      case "send":    await sendEmail(email, args); break;
+      case "reply":
+        if (!args._[2]) { console.error("Usage: node outlook.js <email> reply <messageId> --body \"text\""); process.exit(1); }
+        await replyEmail(email, args._[2], args);
+        break;
+      case "folders":  await listFolders(email); break;
+      default:
+        console.error(`Unknown command: ${command}\nRun: node outlook.js --help`);
         process.exit(1);
-      }
-      await readEmail(args._[1]);
-      break;
-    case "send":
-      await sendEmail(args);
-      break;
-    case "reply":
-      if (!args._[1]) {
-        console.error("Usage: node outlook.js reply <messageId> --body \"text\"");
-        process.exit(1);
-      }
-      await replyEmail(args._[1], args);
-      break;
-    case "folders":
-      await listFolders();
-      break;
-    default:
-      console.error(`Unknown command: ${command}\nRun: node outlook.js --help`);
-      process.exit(1);
+    }
+  } else {
+    console.error(`Unknown command: ${cmd1}\nRun: node outlook.js --help`);
+    process.exit(1);
   }
 } catch (err) {
   if (err.statusCode === 401) {
-    console.error("Authentication expired. Run: node outlook.js auth");
+    console.error(`Authentication expired for ${cmd1}.\nRun: node outlook.js accounts add ${cmd1}`);
   } else {
     console.error(`Error: ${err.message}`);
   }
