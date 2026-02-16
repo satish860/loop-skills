@@ -78,17 +78,25 @@ test_web() {
 # ──────────────────────────────────────
 test_browser() {
   echo ""
-  echo "🌐 browser skill"
+  echo "🌐 browser skill (@playwright/cli)"
 
-  if ! command -v npx &> /dev/null; then
-    yellow "SKIP (npx not found)"
-    SKIP=$((SKIP + 1))
+  if ! command -v playwright-cli &> /dev/null; then
+    yellow "SKIP (playwright-cli not installed — npm install -g @playwright/cli)"
+    SKIP=$((SKIP + 3))
     return
   fi
 
+  run_test "open + snapshot" \
+    "playwright-cli open https://example.com 2>&1" \
+    "Example Domain"
+
   run_test "screenshot" \
-    "npx playwright screenshot 'https://example.com' /tmp/loop-skills-test.png 2>&1" \
-    ""
+    "playwright-cli screenshot 2>&1" \
+    "Screenshot"
+
+  run_test "close" \
+    "playwright-cli close 2>&1" \
+    "closed"
 }
 
 # ──────────────────────────────────────

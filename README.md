@@ -37,7 +37,7 @@ git clone https://github.com/deltaxy/loop-skills ~/.codex/skills/loop-skills
 | Skill | Description | Scripts |
 |-------|-------------|---------|
 | **web** | Web search, content extraction, entity discovery, and monitoring via Parallel AI | `search.js`, `extract.js`, `findall.js`, `monitor.js` |
-| **browser** | Interactive browser automation via Playwright | `run.js` |
+| **browser** | Browser automation via [@playwright/cli](https://github.com/microsoft/playwright-cli) — 50+ commands, element refs, sessions, network mocking | `playwright-cli` (global install) |
 | **voice** | Text-to-speech, sound effects, and voice design via ElevenLabs | `tts.py`, `sfx.py`, `voice-design.py` |
 | **firecrawl** | Web crawling, scraping, and structured extraction via Firecrawl API | `search.py`, `scrape.py`, `crawl.py` |
 
