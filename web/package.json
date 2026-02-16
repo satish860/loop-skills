@@ -1,0 +1,9 @@
+{
+  "name": "loop-skills-web",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Web search, extraction, discovery, and monitoring via Parallel AI",
+  "dependencies": {
+    "parallel-web": "^0.3.1"
+  }
+}
