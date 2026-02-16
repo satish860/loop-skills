@@ -48,6 +48,7 @@ git clone https://github.com/deltaxy/loop-skills ~/.codex/skills/loop-skills
 | **salesforce** | Salesforce SOQL/SOSL queries, CRUD on any object, metadata | `salesforce.js` |
 | **sharepoint** | SharePoint sites, document libraries, file upload/download | `sharepoint.js` |
 | **dynamics** | Microsoft Dynamics 365 OData queries, CRUD, entity metadata | `dynamics.js` |
+| **database** | PostgreSQL, SQLite, MySQL, MongoDB, Redis — query, schema, CRUD, export | `postgres.js`, `sqlite.js`, `mysql.js`, `mongo.js`, `redis.js` |
 | **firecrawl** | Web crawling, scraping, and structured extraction via Firecrawl API | `search.py`, `scrape.py`, `crawl.py` |
 
 ## Design Principles

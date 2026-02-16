@@ -237,6 +237,33 @@ test_dynamics() {
 }
 
 # ──────────────────────────────────────
+# DATABASE SKILL
+# ──────────────────────────────────────
+test_database() {
+  echo ""
+  echo "🗄️  database skill"
+  run_test "postgres help" "node $SCRIPT_DIR/database/postgres.js --help 2>&1" "PostgreSQL CLI"
+  run_test "sqlite help" "node $SCRIPT_DIR/database/sqlite.js --help 2>&1" "SQLite CLI"
+  run_test "mysql help" "node $SCRIPT_DIR/database/mysql.js --help 2>&1" "MySQL CLI"
+  run_test "mongo help" "node $SCRIPT_DIR/database/mongo.js --help 2>&1" "MongoDB CLI"
+  run_test "redis help" "node $SCRIPT_DIR/database/redis.js --help 2>&1" "Redis CLI"
+
+  # SQLite integration test (no server needed)
+  cd "$SCRIPT_DIR/database"
+  node -e "
+import Database from 'better-sqlite3';
+const db = new Database('_test.db');
+db.exec('CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)');
+db.exec(\"INSERT INTO t VALUES (1, 'test')\");
+db.close();
+" 2>/dev/null
+  run_test "sqlite tables" "node $SCRIPT_DIR/database/sqlite.js $SCRIPT_DIR/database/_test.db tables 2>&1" "t"
+  run_test "sqlite query" "node $SCRIPT_DIR/database/sqlite.js $SCRIPT_DIR/database/_test.db query 'SELECT * FROM t' 2>&1" "test"
+  rm -f "$SCRIPT_DIR/database/_test.db"
+  cd "$SCRIPT_DIR"
+}
+
+# ──────────────────────────────────────
 # MAIN
 # ──────────────────────────────────────
 echo "🧪 loop-skills test runner"
@@ -259,6 +286,7 @@ if [ $# -gt 0 ]; then
       salesforce) test_salesforce ;;
       sharepoint) test_sharepoint ;;
       dynamics)   test_dynamics ;;
+      database)   test_database ;;
       *)          echo "Unknown skill: $skill" ;;
     esac
   done
@@ -274,6 +302,7 @@ else
   test_salesforce
   test_sharepoint
   test_dynamics
+  test_database
   test_firecrawl
   test_voice
 fi

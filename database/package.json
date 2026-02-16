@@ -1,0 +1,13 @@
+{
+  "name": "loop-skills-database",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Database CLI for PostgreSQL, SQLite, MySQL, MongoDB, Redis",
+  "dependencies": {
+    "pg": "^8.13.0",
+    "better-sqlite3": "^11.7.0",
+    "mysql2": "^3.12.0",
+    "mongodb": "^6.12.0",
+    "redis": "^4.7.0"
+  }
+}
