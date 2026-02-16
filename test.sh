@@ -136,6 +136,36 @@ test_voice() {
 }
 
 # ──────────────────────────────────────
+# GMAIL SKILL
+# ──────────────────────────────────────
+test_gmail() {
+  echo ""
+  echo "📧 gmail skill (gmcli)"
+
+  if ! command -v gmcli &> /dev/null; then
+    yellow "SKIP (gmcli not installed — npm install -g @mariozechner/gmcli)"
+    SKIP=$((SKIP + 1))
+    return
+  fi
+
+  run_test "accounts list" \
+    "gmcli accounts list 2>&1" \
+    ""
+}
+
+# ──────────────────────────────────────
+# OUTLOOK SKILL
+# ──────────────────────────────────────
+test_outlook() {
+  echo ""
+  echo "📬 outlook skill"
+
+  run_test "help" \
+    "node $SCRIPT_DIR/outlook/outlook.js --help 2>&1" \
+    "Microsoft 365 Email CLI"
+}
+
+# ──────────────────────────────────────
 # MAIN
 # ──────────────────────────────────────
 echo "🧪 loop-skills test runner"
@@ -149,6 +179,8 @@ if [ $# -gt 0 ]; then
       browser)   test_browser ;;
       firecrawl) test_firecrawl ;;
       voice)     test_voice ;;
+      gmail)     test_gmail ;;
+      outlook)   test_outlook ;;
       *)         echo "Unknown skill: $skill" ;;
     esac
   done
@@ -157,6 +189,8 @@ else
   test_browser
   test_firecrawl
   test_voice
+  test_gmail
+  test_outlook
 fi
 
 # Summary
