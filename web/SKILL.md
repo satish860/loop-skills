@@ -11,6 +11,7 @@ Four tools in one skill. All use the Parallel AI API.
 
 ```bash
 cd {baseDir} && npm install
+export PARALLEL_API_KEY=your-key-here   # Get key at https://www.parallel.ai
 ```
 
 ## Search

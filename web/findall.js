@@ -12,7 +12,11 @@
 
 import Parallel from "parallel-web";
 
-const API_KEY = "YIwakM9qjy7zkLsy3UJtlRJeFg0N5z8EXSinXRNR";
+const API_KEY = process.env.PARALLEL_API_KEY || "";
+if (!API_KEY) {
+  console.error("Error: PARALLEL_API_KEY not set.\nGet your key at https://www.parallel.ai and run:\n  export PARALLEL_API_KEY=your-key-here");
+  process.exit(1);
+}
 const BETA_HEADER = "findall-2025-09-15";
 
 const args = process.argv.slice(2);
