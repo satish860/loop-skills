@@ -1,0 +1,10 @@
+{
+  "name": "loop-skills-sharepoint",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "SharePoint CLI via Microsoft Graph API",
+  "dependencies": {
+    "@azure/msal-node": "^2.16.0",
+    "@microsoft/microsoft-graph-client": "^3.0.7"
+  }
+}

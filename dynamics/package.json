@@ -1,0 +1,9 @@
+{
+  "name": "loop-skills-dynamics",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Microsoft Dynamics 365 CLI via Dataverse Web API",
+  "dependencies": {
+    "@azure/msal-node": "^2.16.0"
+  }
+}

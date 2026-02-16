@@ -166,6 +166,77 @@ test_outlook() {
 }
 
 # ──────────────────────────────────────
+# GCAL SKILL
+# ──────────────────────────────────────
+test_gcal() {
+  echo ""
+  echo "📅 gcal skill (gccli)"
+  if ! command -v gccli &> /dev/null; then
+    yellow "SKIP (gccli not installed — npm install -g @mariozechner/gccli)"
+    SKIP=$((SKIP + 1)); return
+  fi
+  run_test "accounts list" "gccli accounts list 2>&1" ""
+}
+
+# ──────────────────────────────────────
+# GDRIVE SKILL
+# ──────────────────────────────────────
+test_gdrive() {
+  echo ""
+  echo "📁 gdrive skill (gdcli)"
+  if ! command -v gdcli &> /dev/null; then
+    yellow "SKIP (gdcli not installed — npm install -g @mariozechner/gdcli)"
+    SKIP=$((SKIP + 1)); return
+  fi
+  run_test "accounts list" "gdcli accounts list 2>&1" ""
+}
+
+# ──────────────────────────────────────
+# SLACK SKILL
+# ──────────────────────────────────────
+test_slack() {
+  echo ""
+  echo "💬 slack skill"
+  run_test "help" "node $SCRIPT_DIR/slack/slack.js --help 2>&1" "Slack CLI"
+}
+
+# ──────────────────────────────────────
+# NOTION SKILL
+# ──────────────────────────────────────
+test_notion() {
+  echo ""
+  echo "📝 notion skill"
+  run_test "help" "node $SCRIPT_DIR/notion/notion.js --help 2>&1" "Notion CLI"
+}
+
+# ──────────────────────────────────────
+# SALESFORCE SKILL
+# ──────────────────────────────────────
+test_salesforce() {
+  echo ""
+  echo "☁️  salesforce skill"
+  run_test "help" "node $SCRIPT_DIR/salesforce/salesforce.js --help 2>&1" "Salesforce CLI"
+}
+
+# ──────────────────────────────────────
+# SHAREPOINT SKILL
+# ──────────────────────────────────────
+test_sharepoint() {
+  echo ""
+  echo "📋 sharepoint skill"
+  run_test "help" "node $SCRIPT_DIR/sharepoint/sharepoint.js --help 2>&1" "SharePoint CLI"
+}
+
+# ──────────────────────────────────────
+# DYNAMICS SKILL
+# ──────────────────────────────────────
+test_dynamics() {
+  echo ""
+  echo "🏢 dynamics skill"
+  run_test "help" "node $SCRIPT_DIR/dynamics/dynamics.js --help 2>&1" "Dynamics 365 CLI"
+}
+
+# ──────────────────────────────────────
 # MAIN
 # ──────────────────────────────────────
 echo "🧪 loop-skills test runner"
@@ -179,18 +250,32 @@ if [ $# -gt 0 ]; then
       browser)   test_browser ;;
       firecrawl) test_firecrawl ;;
       voice)     test_voice ;;
-      gmail)     test_gmail ;;
-      outlook)   test_outlook ;;
-      *)         echo "Unknown skill: $skill" ;;
+      gmail)      test_gmail ;;
+      outlook)    test_outlook ;;
+      gcal)       test_gcal ;;
+      gdrive)     test_gdrive ;;
+      slack)      test_slack ;;
+      notion)     test_notion ;;
+      salesforce) test_salesforce ;;
+      sharepoint) test_sharepoint ;;
+      dynamics)   test_dynamics ;;
+      *)          echo "Unknown skill: $skill" ;;
     esac
   done
 else
   test_web
   test_browser
-  test_firecrawl
-  test_voice
   test_gmail
   test_outlook
+  test_gcal
+  test_gdrive
+  test_slack
+  test_notion
+  test_salesforce
+  test_sharepoint
+  test_dynamics
+  test_firecrawl
+  test_voice
 fi
 
 # Summary

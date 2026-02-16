@@ -1,0 +1,9 @@
+{
+  "name": "loop-skills-salesforce",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Salesforce CLI via jsforce",
+  "dependencies": {
+    "jsforce": "^3.6.0"
+  }
+}

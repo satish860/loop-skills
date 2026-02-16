@@ -1,0 +1,9 @@
+{
+  "name": "loop-skills-notion",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Notion CLI via Notion API",
+  "dependencies": {
+    "@notionhq/client": "^2.2.0"
+  }
+}

@@ -41,6 +41,13 @@ git clone https://github.com/deltaxy/loop-skills ~/.codex/skills/loop-skills
 | **voice** | Text-to-speech, sound effects, and voice design via ElevenLabs | `tts.py`, `sfx.py`, `voice-design.py` |
 | **gmail** | Gmail search, read, send, reply, drafts, labels via [gmcli](https://github.com/badlogic/pi-skills/tree/main/gmcli) | `gmcli` (global install) |
 | **outlook** | Outlook/Microsoft 365 email via Microsoft Graph API — search, read, send, reply, folders | `outlook.js` |
+| **gcal** | Google Calendar events, availability, scheduling via [gccli](https://github.com/badlogic/pi-skills/tree/main/gccli) | `gccli` (global install) |
+| **gdrive** | Google Drive files, upload, download, search, share via [gdcli](https://github.com/badlogic/pi-skills/tree/main/gdcli) | `gdcli` (global install) |
+| **slack** | Slack channels, messages, threads, search, DMs, file upload | `slack.js` |
+| **notion** | Notion pages, databases, search, create, add rows | `notion.js` |
+| **salesforce** | Salesforce SOQL/SOSL queries, CRUD on any object, metadata | `salesforce.js` |
+| **sharepoint** | SharePoint sites, document libraries, file upload/download | `sharepoint.js` |
+| **dynamics** | Microsoft Dynamics 365 OData queries, CRUD, entity metadata | `dynamics.js` |
 | **firecrawl** | Web crawling, scraping, and structured extraction via Firecrawl API | `search.py`, `scrape.py`, `crawl.py` |
 
 ## Design Principles
